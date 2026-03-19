@@ -47,6 +47,7 @@ function generateUniqueShortCode($length = 5)
 function formatUrlRow($url)
 {
     $baseUrl = getBaseUrl();
+    $redirectPath = getRedirectPath();
 
     return [
         '_id' => (int)$url['id'],
@@ -55,7 +56,7 @@ function formatUrlRow($url)
         'clickCount' => (int)$url['click_count'],
         'createdAt' => $url['created_at'],
         'updatedAt' => $url['updated_at'] ?? null,
-        'shortUrl' => $baseUrl . '/redirect/index.php?code=' . $url['short_code']
+        'shortUrl' => $baseUrl . $redirectPath . '?code=' . rawurlencode($url['short_code'])
     ];
 }
 
@@ -161,18 +162,111 @@ function incrementClickCount($id)
     return getUrlById($id);
 }
 
-function logVisit($urlId, $ipAddress = null, $userAgent = null)
+function httpGetJson($url, $timeoutSeconds = 3)
+{
+    if (function_exists('curl_init')) {
+        $ch = curl_init();
+        curl_setopt_array($ch, [
+            CURLOPT_URL => $url,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_CONNECTTIMEOUT => $timeoutSeconds,
+            CURLOPT_TIMEOUT => $timeoutSeconds,
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_USERAGENT => 'Shortener-LAMP/1.0',
+        ]);
+
+        $body = curl_exec($ch);
+        $statusCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+
+        if ($body === false || $statusCode >= 400) {
+            return null;
+        }
+
+        $json = json_decode($body, true);
+        return is_array($json) ? $json : null;
+    }
+
+    $context = stream_context_create([
+        'http' => [
+            'method' => 'GET',
+            'timeout' => $timeoutSeconds,
+            'header' => "User-Agent: Shortener-LAMP/1.0\r\n",
+        ]
+    ]);
+
+    $body = @file_get_contents($url, false, $context);
+    if ($body === false) {
+        return null;
+    }
+
+    $json = json_decode($body, true);
+    return is_array($json) ? $json : null;
+}
+
+function getCountryFromIp($ipAddress)
+{
+    if (empty($ipAddress)) {
+        return 'Unknown';
+    }
+
+    if ($ipAddress === '127.0.0.1' || $ipAddress === '::1') {
+        return 'Local';
+    }
+
+    $isPublicIp = filter_var($ipAddress, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE);
+    if ($isPublicIp === false) {
+        return 'Unknown';
+    }
+
+    $ipAddress = rawurlencode($ipAddress);
+    $ipInfoToken = getenv('IPINFO_TOKEN');
+    $ipInfoUrl = 'https://ipinfo.io/' . $ipAddress . '/json';
+
+    if ($ipInfoToken) {
+        $ipInfoUrl .= '?token=' . rawurlencode($ipInfoToken);
+    }
+
+    $ipInfo = httpGetJson($ipInfoUrl, 2);
+    if (is_array($ipInfo)) {
+        if (!empty($ipInfo['country'])) {
+            return $ipInfo['country'];
+        }
+        if (!empty($ipInfo['country_name'])) {
+            return $ipInfo['country_name'];
+        }
+    }
+
+    $fallbackInfo = httpGetJson('https://ipapi.co/' . $ipAddress . '/json/', 2);
+    if (is_array($fallbackInfo)) {
+        if (!empty($fallbackInfo['country_name'])) {
+            return $fallbackInfo['country_name'];
+        }
+        if (!empty($fallbackInfo['country'])) {
+            return $fallbackInfo['country'];
+        }
+    }
+
+    return 'Unknown';
+}
+
+function logVisit($urlId, $ipAddress = null, $userAgent = null, $country = null)
 {
     $pdo = getDatabaseConnection();
 
+    if ($country === null) {
+        $country = getCountryFromIp($ipAddress);
+    }
+
     $stmt = $pdo->prepare("
-        INSERT INTO visits (url_id, ip_address, user_agent)
-        VALUES (:url_id, :ip_address, :user_agent)
+        INSERT INTO visits (url_id, ip_address, country, user_agent)
+        VALUES (:url_id, :ip_address, :country, :user_agent)
     ");
 
     $stmt->execute([
         'url_id' => $urlId,
         'ip_address' => $ipAddress,
+        'country' => $country,
         'user_agent' => $userAgent
     ]);
 
@@ -180,6 +274,7 @@ function logVisit($urlId, $ipAddress = null, $userAgent = null)
         'id' => (int)$pdo->lastInsertId(),
         'url_id' => (int)$urlId,
         'ip_address' => $ipAddress,
+        'country' => $country,
         'user_agent' => $userAgent
     ];
 }
@@ -204,7 +299,7 @@ function getVisitsByUrlId($urlId)
     $pdo = getDatabaseConnection();
 
     $stmt = $pdo->prepare("
-        SELECT id, url_id, ip_address, user_agent, visited_at
+        SELECT id, url_id, ip_address, country, user_agent, visited_at
         FROM visits
         WHERE url_id = :url_id
         ORDER BY visited_at DESC
@@ -216,7 +311,7 @@ function getVisitsByUrlId($urlId)
 
 function getStatsByUrlId($urlId)
 {
-    assertUrlExists($urlId);
+    $url = assertUrlExists($urlId);
 
     $visits = getVisitsByUrlId($urlId);
     $dailyBreakdown = [];
@@ -230,27 +325,11 @@ function getStatsByUrlId($urlId)
     }
 
     return [
+        'createdAt' => $url['createdAt'],
         'totalVisits' => count($visits),
         'visits' => $visits,
         'dailyBreakdown' => $dailyBreakdown
     ];
-}
-
-function getCountryFromIp($ipAddress)
-{
-    if (empty($ipAddress)) {
-        return 'Unknown';
-    }
-
-    if ($ipAddress === '127.0.0.1' || $ipAddress === '::1') {
-        return 'Local';
-    }
-
-    if (filter_var($ipAddress, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) === false) {
-        return 'Unknown';
-    }
-
-    return 'Unknown';
 }
 
 function getCountriesByUrlId($urlId)
@@ -260,37 +339,23 @@ function getCountriesByUrlId($urlId)
     $pdo = getDatabaseConnection();
 
     $stmt = $pdo->prepare("
-        SELECT ip_address
+        SELECT COALESCE(NULLIF(TRIM(country), ''), 'Unknown') AS country, COUNT(*) AS count
         FROM visits
         WHERE url_id = :url_id
+        GROUP BY COALESCE(NULLIF(TRIM(country), ''), 'Unknown')
+        ORDER BY count DESC
     ");
 
     $stmt->execute(['url_id' => $urlId]);
-    $visits = $stmt->fetchAll();
-
-    $countryCount = [];
-
-    foreach ($visits as $visit) {
-        $country = getCountryFromIp($visit['ip_address']);
-
-        if (!isset($countryCount[$country])) {
-            $countryCount[$country] = 0;
-        }
-
-        $countryCount[$country]++;
-    }
+    $rows = $stmt->fetchAll();
 
     $countries = [];
-    foreach ($countryCount as $country => $count) {
+    foreach ($rows as $row) {
         $countries[] = [
-            'country' => $country,
-            'count' => $count
+            'country' => $row['country'],
+            'count' => (int)$row['count']
         ];
     }
-
-    usort($countries, function ($a, $b) {
-        return $b['count'] <=> $a['count'];
-    });
 
     return ['countries' => $countries];
 }

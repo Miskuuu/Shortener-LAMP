@@ -1,0 +1,4 @@
+{
+    "baseUrl": "http://localhost/Shortener-LAMP",
+    "redirectPath": "/backend/redirect/index.php"
+}

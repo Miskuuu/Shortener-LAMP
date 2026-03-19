@@ -20,7 +20,7 @@ if (!$input || !isset($input['url_id'])) {
 }
 
 $urlId = (int)$input['url_id'];
-$ipAddress = isset($input['ip_address']) ? sanitizeInput($input['ip_address']) : null;
+$ipAddress = isset($input['ip_address']) ? sanitizeInput($input['ip_address']) : getClientIpAddress();
 $userAgent = isset($input['user_agent']) ? sanitizeInput($input['user_agent']) : null;
 
 try {

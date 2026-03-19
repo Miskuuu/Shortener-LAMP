@@ -23,7 +23,8 @@ try {
     $chart = getDailyFrequencyChartData($id);
 
     sendJsonResponse(200, [
-        'urlId' => (string) $id,
+        'urlId' => $id,
+        'createdAt' => $stats['createdAt'],
         'totalVisits' => $stats['totalVisits'],
         'visits' => $stats['visits'],
         'dailyBreakdown' => $stats['dailyBreakdown'],

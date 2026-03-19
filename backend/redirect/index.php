@@ -23,14 +23,10 @@ try {
     $url = getUrlByShortCode($shortCode);
 
     // 2) Obtener IP y User-Agent
-    $ip =
-        (!empty($_SERVER['HTTP_X_FORWARDED_FOR']))
-            ? trim(explode(',', $_SERVER['HTTP_X_FORWARDED_FOR'])[0])
-            : ($_SERVER['REMOTE_ADDR'] ?? null);
-
+    $ip = getClientIpAddress();
     $userAgent = $_SERVER['HTTP_USER_AGENT'] ?? '';
 
-    // 3) Guardar visita
+    // 3) Guardar visita (incluye resolución de país)
     logVisit($url['_id'], $ip, $userAgent);
 
     // 4) Incrementar contador

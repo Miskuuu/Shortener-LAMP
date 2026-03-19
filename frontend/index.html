@@ -1,0 +1,799 @@
+<!doctype html>
+<html lang="es">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Shortener Monitor LAMP</title>
+	<style>
+		:root {
+			--bg-1: #f6f8ff;
+			--bg-2: #e7f2ff;
+			--surface: #ffffff;
+			--surface-soft: #f8fbff;
+			--ink: #152238;
+			--muted: #49617d;
+			--accent: #0f766e;
+			--accent-2: #2563eb;
+			--border: #cfe0f3;
+			--shadow: 0 14px 40px rgba(21, 34, 56, 0.12);
+			--radius: 14px;
+		}
+
+		* {
+			box-sizing: border-box;
+		}
+
+		body {
+			margin: 0;
+			font-family: "Manrope", "Trebuchet MS", sans-serif;
+			color: var(--ink);
+			background: radial-gradient(circle at 8% 10%, #d7f4ff 0%, transparent 40%),
+						radial-gradient(circle at 92% 5%, #ffe4c7 0%, transparent 34%),
+						linear-gradient(165deg, var(--bg-1) 0%, var(--bg-2) 100%);
+			min-height: 100vh;
+		}
+
+		.layout {
+			max-width: 1200px;
+			margin: 0 auto;
+			padding: 20px;
+			display: grid;
+			gap: 18px;
+		}
+
+		.panel {
+			background: var(--surface);
+			border: 1px solid var(--border);
+			border-radius: var(--radius);
+			box-shadow: var(--shadow);
+			overflow: hidden;
+			opacity: 0;
+			transform: translateY(12px);
+			animation: rise 0.5s ease forwards;
+		}
+
+		.panel:nth-child(2) {
+			animation-delay: 0.08s;
+		}
+
+		.panel:nth-child(3) {
+			animation-delay: 0.14s;
+		}
+
+		@keyframes rise {
+			to {
+				opacity: 1;
+				transform: translateY(0);
+			}
+		}
+
+		.panel-head {
+			padding: 16px 18px;
+			border-bottom: 1px solid var(--border);
+			background: linear-gradient(120deg, #f3f8ff, #edf5ff);
+		}
+
+		.panel-head h1,
+		.panel-head h2 {
+			margin: 0;
+			font-family: "Space Grotesk", "Trebuchet MS", sans-serif;
+		}
+
+		.panel-body {
+			padding: 16px 18px;
+		}
+
+		.grid-2 {
+			display: grid;
+			gap: 12px;
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+		}
+
+		label {
+			display: block;
+			font-size: 13px;
+			color: var(--muted);
+			margin-bottom: 6px;
+		}
+
+		input,
+		select,
+		button {
+			width: 100%;
+			border-radius: 10px;
+			border: 1px solid var(--border);
+			padding: 11px 12px;
+			font-size: 14px;
+			font-family: inherit;
+		}
+
+		input {
+			background: #fff;
+			color: var(--ink);
+		}
+
+		button {
+			color: #fff;
+			background: linear-gradient(130deg, var(--accent), var(--accent-2));
+			cursor: pointer;
+			font-weight: 700;
+			transition: transform 0.15s ease, filter 0.2s ease;
+		}
+
+		button:hover {
+			filter: brightness(1.05);
+			transform: translateY(-1px);
+		}
+
+		.status {
+			margin-top: 10px;
+			min-height: 21px;
+			font-size: 13px;
+		}
+
+		.status.ok { color: #0f766e; }
+		.status.error { color: #b91c1c; }
+
+		.url-list {
+			display: grid;
+			gap: 10px;
+		}
+
+		.url-item {
+			border: 1px solid var(--border);
+			border-radius: 12px;
+			padding: 12px;
+			background: var(--surface-soft);
+			display: grid;
+			gap: 8px;
+		}
+
+		.url-item a {
+			color: #0a4ab7;
+			text-decoration: none;
+			word-break: break-all;
+		}
+
+		.url-item a:hover {
+			text-decoration: underline;
+		}
+
+		.actions {
+			display: flex;
+			gap: 8px;
+			flex-wrap: wrap;
+		}
+
+		.actions button {
+			width: auto;
+			padding: 8px 10px;
+			font-size: 13px;
+		}
+
+		.kpis {
+			display: grid;
+			gap: 10px;
+			grid-template-columns: repeat(3, minmax(0, 1fr));
+			margin-bottom: 12px;
+		}
+
+		.kpi {
+			background: #f3f8ff;
+			border: 1px solid var(--border);
+			border-radius: 10px;
+			padding: 10px;
+		}
+
+		.kpi small {
+			display: block;
+			color: var(--muted);
+			margin-bottom: 4px;
+			font-size: 12px;
+		}
+
+		.kpi strong {
+			font-size: 18px;
+		}
+
+		.countries {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 8px;
+			margin-bottom: 12px;
+		}
+
+		.pill {
+			font-size: 12px;
+			border: 1px solid var(--border);
+			background: #fff;
+			border-radius: 999px;
+			padding: 6px 10px;
+			color: var(--ink);
+		}
+
+		.chart-wrap {
+			border: 1px solid var(--border);
+			border-radius: 12px;
+			background: #fff;
+			padding: 10px;
+			overflow-x: auto;
+		}
+
+		.section-title {
+			font-size: 14px;
+			font-weight: 700;
+			margin: 14px 0 8px;
+		}
+
+		.table-wrap {
+			border: 1px solid var(--border);
+			border-radius: 12px;
+			overflow: auto;
+			background: #fff;
+		}
+
+		table {
+			width: 100%;
+			border-collapse: collapse;
+			min-width: 700px;
+		}
+
+		thead th {
+			text-align: left;
+			font-size: 12px;
+			color: #294768;
+			background: #eef5ff;
+			padding: 10px;
+			border-bottom: 1px solid var(--border);
+		}
+
+		tbody td {
+			font-size: 12px;
+			padding: 10px;
+			border-bottom: 1px solid #edf3fb;
+			vertical-align: top;
+		}
+
+		tbody tr:nth-child(odd) {
+			background: #fcfdff;
+		}
+
+		.user-agent-cell {
+			max-width: 320px;
+			word-break: break-word;
+			color: #3a516d;
+		}
+
+		.filters-grid {
+			display: grid;
+			grid-template-columns: 1.3fr 1fr 1fr;
+			gap: 8px;
+			margin-bottom: 10px;
+		}
+
+		.filters-summary {
+			font-size: 12px;
+			color: var(--muted);
+			margin-bottom: 8px;
+		}
+
+		svg text {
+			font-family: "Manrope", sans-serif;
+			fill: #355070;
+			font-size: 11px;
+		}
+
+		.hint {
+			font-size: 12px;
+			color: var(--muted);
+		}
+
+		@media (max-width: 860px) {
+			.grid-2,
+			.kpis,
+			.filters-grid {
+				grid-template-columns: 1fr;
+			}
+		}
+	</style>
+</head>
+<body>
+	<main class="layout">
+		<section class="panel">
+			<header class="panel-head">
+				<h1>Acortador y Monitoreo de URLs</h1>
+			</header>
+			<div class="panel-body">
+				<form id="create-form">
+					<div class="grid-2">
+						<div>
+							<label for="base-url">Ruta base del sistema</label>
+							<input id="base-url" type="text" placeholder="http://localhost/Shortener-LAMP" required>
+						</div>
+						<div>
+							<label for="api-root">Ruta API (opcional)</label>
+							<input id="api-root" type="text" placeholder="../backend/api">
+						</div>
+					</div>
+					<div style="margin-top:10px;">
+						<label for="redirect-path">Ruta del redireccionador</label>
+						<input id="redirect-path" type="text" placeholder="/backend/redirect/index.php">
+					</div>
+					<div style="margin-top:10px;">
+						<label for="original-url">URL a acortar</label>
+						<input id="original-url" type="url" placeholder="https://ejemplo.com/recurso" required>
+					</div>
+					<div style="margin-top:12px;">
+						<button type="submit">Generar URL corta</button>
+					</div>
+					<div class="status" id="create-status"></div>
+				</form>
+			</div>
+		</section>
+
+		<section class="panel">
+			<header class="panel-head">
+				<h2>URLs Generadas</h2>
+			</header>
+			<div class="panel-body">
+				<div class="hint">Selecciona "Ver estadísticas" para ver fecha de creación, total de accesos, países y gráfica por día.</div>
+				<div class="url-list" id="url-list" style="margin-top:10px;"></div>
+			</div>
+		</section>
+
+		<section class="panel">
+			<header class="panel-head">
+				<h2>Vista de Monitoreo</h2>
+			</header>
+			<div class="panel-body" id="stats-view">
+				<div class="hint">Aún no hay URL seleccionada.</div>
+			</div>
+		</section>
+	</main>
+
+	<script>
+		(function () {
+			const state = {
+				apiRoot: '../backend/api',
+				selectedUrlId: null,
+				urls: [],
+				currentVisits: [],
+				visitsFilters: {
+					country: '',
+					fromDate: '',
+					toDate: ''
+				}
+			};
+
+			const el = {
+				form: document.getElementById('create-form'),
+				baseUrl: document.getElementById('base-url'),
+				apiRoot: document.getElementById('api-root'),
+				redirectPath: document.getElementById('redirect-path'),
+				originalUrl: document.getElementById('original-url'),
+				createStatus: document.getElementById('create-status'),
+				urlList: document.getElementById('url-list'),
+				statsView: document.getElementById('stats-view')
+			};
+
+			function detectBaseUrl() {
+				const fromStorage = localStorage.getItem('baseUrl');
+				if (fromStorage) {
+					return fromStorage;
+				}
+
+				const pathParts = window.location.pathname.split('/').filter(Boolean);
+				if (pathParts.length <= 1) {
+					return window.location.origin;
+				}
+
+				const basePath = '/' + pathParts.slice(0, pathParts.length - 1).join('/');
+				return window.location.origin + basePath;
+			}
+
+			function normalizeRoot(value) {
+				return value.replace(/\/+$/, '');
+			}
+
+			function normalizeRedirectPath(value) {
+				const trimmed = value.trim();
+				if (!trimmed) {
+					return '/backend/redirect/index.php';
+				}
+				return '/' + trimmed.replace(/^\/+/, '');
+			}
+
+			function escapeHtml(value) {
+				const str = String(value ?? '');
+				return str
+					.replace(/&/g, '&amp;')
+					.replace(/</g, '&lt;')
+					.replace(/>/g, '&gt;')
+					.replace(/"/g, '&quot;')
+					.replace(/'/g, '&#039;');
+			}
+
+			function setStatus(message, ok) {
+				el.createStatus.textContent = message;
+				el.createStatus.className = 'status ' + (ok ? 'ok' : 'error');
+			}
+
+			async function requestJson(path, options) {
+				const response = await fetch(state.apiRoot + path, {
+					...options,
+					headers: {
+						'Content-Type': 'application/json',
+						...(options && options.headers ? options.headers : {})
+					}
+				});
+
+				let payload = null;
+				try {
+					payload = await response.json();
+				} catch (err) {
+					payload = null;
+				}
+
+				if (!response.ok) {
+					const message = payload && (payload.error || payload.message)
+						? (payload.error || payload.message)
+						: 'Error en la API';
+					throw new Error(message);
+				}
+
+				return payload;
+			}
+
+			function renderUrlList() {
+				el.urlList.innerHTML = '';
+
+				if (!state.urls.length) {
+					el.urlList.innerHTML = '<div class="hint">No hay URLs registradas todavía.</div>';
+					return;
+				}
+
+				const fragment = document.createDocumentFragment();
+
+				state.urls.forEach((item, index) => {
+					const card = document.createElement('article');
+					card.className = 'url-item';
+					card.style.animation = `rise 0.35s ease ${index * 0.03}s both`;
+
+					const original = document.createElement('div');
+					original.innerHTML = `<strong>Original:</strong> <a href="${item.originalUrl}" target="_blank" rel="noreferrer">${item.originalUrl}</a>`;
+
+					const short = document.createElement('div');
+					short.innerHTML = `<strong>Corta:</strong> <a href="${item.shortUrl}" target="_blank" rel="noreferrer">${item.shortUrl}</a>`;
+
+					const meta = document.createElement('div');
+					meta.className = 'hint';
+					meta.textContent = `Creada: ${item.createdAt} | Accesos: ${item.clickCount}`;
+
+					const actions = document.createElement('div');
+					actions.className = 'actions';
+
+					const statsBtn = document.createElement('button');
+					statsBtn.type = 'button';
+					statsBtn.textContent = 'Ver estadísticas';
+					statsBtn.addEventListener('click', () => loadStats(item._id));
+
+					const copyBtn = document.createElement('button');
+					copyBtn.type = 'button';
+					copyBtn.textContent = 'Copiar URL corta';
+					copyBtn.addEventListener('click', async () => {
+						try {
+							await navigator.clipboard.writeText(item.shortUrl);
+							setStatus('URL corta copiada al portapapeles.', true);
+						} catch (error) {
+							setStatus('No se pudo copiar automáticamente.', false);
+						}
+					});
+
+					actions.appendChild(statsBtn);
+					actions.appendChild(copyBtn);
+
+					card.appendChild(original);
+					card.appendChild(short);
+					card.appendChild(meta);
+					card.appendChild(actions);
+					fragment.appendChild(card);
+				});
+
+				el.urlList.appendChild(fragment);
+			}
+
+			function renderChart(chartData) {
+				const labels = Array.isArray(chartData.labels) ? chartData.labels : [];
+				const points = chartData.datasets && chartData.datasets[0] ? chartData.datasets[0].data || [] : [];
+
+				if (!labels.length || !points.length) {
+					return '<div class="hint">Sin datos para la gráfica todavía.</div>';
+				}
+
+				const width = Math.max(440, labels.length * 64);
+				const height = 220;
+				const maxValue = Math.max(...points, 1);
+				const barW = 34;
+				const gap = 28;
+				const startX = 34;
+				const baseY = 180;
+
+				const bars = points.map((value, i) => {
+					const barHeight = Math.round((value / maxValue) * 120);
+					const x = startX + i * (barW + gap);
+					const y = baseY - barHeight;
+					const label = labels[i] || '';
+					return `
+						<rect x="${x}" y="${y}" width="${barW}" height="${barHeight}" rx="6" fill="#2563eb"></rect>
+						<text x="${x + barW / 2}" y="${y - 6}" text-anchor="middle">${value}</text>
+						<text x="${x + barW / 2}" y="${baseY + 16}" text-anchor="middle">${label}</text>
+					`;
+				}).join('');
+
+				return `
+					<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" role="img" aria-label="Frecuencia de accesos por día">
+						<line x1="20" y1="180" x2="${width - 16}" y2="180" stroke="#93b5de" stroke-width="1"></line>
+						${bars}
+					</svg>
+				`;
+			}
+
+			function toVisitDate(visitedAt) {
+				if (!visitedAt || typeof visitedAt !== 'string') {
+					return '';
+				}
+				return visitedAt.slice(0, 10);
+			}
+
+			function getFilteredVisits() {
+				const countryFilter = state.visitsFilters.country;
+				const fromDate = state.visitsFilters.fromDate;
+				const toDate = state.visitsFilters.toDate;
+
+				return state.currentVisits.filter((visit) => {
+					const visitCountry = String(visit.country || 'Unknown');
+					const visitDate = toVisitDate(visit.visited_at);
+
+					if (countryFilter && visitCountry !== countryFilter) {
+						return false;
+					}
+
+					if (fromDate && visitDate && visitDate < fromDate) {
+						return false;
+					}
+
+					if (toDate && visitDate && visitDate > toDate) {
+						return false;
+					}
+
+					if ((fromDate || toDate) && !visitDate) {
+						return false;
+					}
+
+					return true;
+				});
+			}
+
+			function renderVisitsTable(visits) {
+				const visitsRows = (visits || []).map((visit, index) => {
+					return `
+						<tr>
+							<td>${index + 1}</td>
+							<td>${escapeHtml(visit.visited_at || '-')}</td>
+							<td>${escapeHtml(visit.ip_address || 'Unknown')}</td>
+							<td>${escapeHtml(visit.country || 'Unknown')}</td>
+							<td class="user-agent-cell">${escapeHtml(visit.user_agent || '-')}</td>
+						</tr>
+					`;
+				}).join('');
+
+				if (!visitsRows) {
+					return '<div class="hint">No hay visitas para los filtros aplicados.</div>';
+				}
+
+				return `
+					<div class="table-wrap">
+						<table aria-label="Tabla detallada de visitas">
+							<thead>
+								<tr>
+									<th>#</th>
+									<th>Fecha y hora</th>
+									<th>IP</th>
+									<th>Pais</th>
+									<th>User-Agent</th>
+								</tr>
+							</thead>
+							<tbody>${visitsRows}</tbody>
+						</table>
+					</div>
+				`;
+			}
+
+			function updateVisitsTable() {
+				const container = document.getElementById('visits-table-container');
+				if (!container) {
+					return;
+				}
+
+				const filtered = getFilteredVisits();
+				container.innerHTML = `
+					<div class="filters-summary">Mostrando ${filtered.length} de ${state.currentVisits.length} visitas.</div>
+					${renderVisitsTable(filtered)}
+				`;
+			}
+
+			function renderStats(stats) {
+				const countryPills = (stats.countries || []).map(c => {
+					return `<span class="pill">${c.country}: ${c.count}</span>`;
+				}).join('');
+
+				state.currentVisits = Array.isArray(stats.visits) ? stats.visits : [];
+				state.visitsFilters = {
+					country: '',
+					fromDate: '',
+					toDate: ''
+				};
+
+				const countryOptions = [...new Set(state.currentVisits.map(v => String(v.country || 'Unknown')))]
+					.sort((a, b) => a.localeCompare(b, 'es'))
+					.map((country) => `<option value="${escapeHtml(country)}">${escapeHtml(country)}</option>`)
+					.join('');
+
+				el.statsView.innerHTML = `
+					<div class="kpis">
+						<div class="kpi">
+							<small>URL ID</small>
+							<strong>${stats.urlId}</strong>
+						</div>
+						<div class="kpi">
+							<small>Fecha de creación</small>
+							<strong>${stats.createdAt || '-'}</strong>
+						</div>
+						<div class="kpi">
+							<small>Total accesos</small>
+							<strong>${stats.totalVisits}</strong>
+						</div>
+					</div>
+					<div class="countries">${countryPills || '<span class="hint">Sin países registrados.</span>'}</div>
+					<div class="section-title">Frecuencia de accesos por dia</div>
+					<div class="chart-wrap">${renderChart(stats.chart || {})}</div>
+					<div class="section-title">Tabla detallada de visitas</div>
+					<div class="filters-grid">
+						<div>
+							<label for="filter-country">Pais</label>
+							<select id="filter-country">
+								<option value="">Todos</option>
+								${countryOptions}
+							</select>
+						</div>
+						<div>
+							<label for="filter-from-date">Desde</label>
+							<input id="filter-from-date" type="date">
+						</div>
+						<div>
+							<label for="filter-to-date">Hasta</label>
+							<input id="filter-to-date" type="date">
+						</div>
+					</div>
+					<div id="visits-table-container"></div>
+				`;
+
+				updateVisitsTable();
+			}
+
+			async function loadUrls() {
+				const data = await requestJson('/urls/list.php', { method: 'GET' });
+				state.urls = Array.isArray(data) ? data : [];
+				renderUrlList();
+			}
+
+			async function loadStats(urlId) {
+				state.selectedUrlId = urlId;
+				const data = await requestJson('/urls/stats.php?id=' + encodeURIComponent(urlId), { method: 'GET' });
+				renderStats(data);
+			}
+
+			async function createShortUrl(originalUrl) {
+				const data = await requestJson('/urls/create.php', {
+					method: 'POST',
+					body: JSON.stringify({ originalUrl })
+				});
+				return data;
+			}
+
+			async function saveBaseConfiguration(baseUrl, redirectPath) {
+				return requestJson('/config/base.php', {
+					method: 'POST',
+					body: JSON.stringify({ baseUrl, redirectPath })
+				});
+			}
+
+			async function loadBaseConfiguration() {
+				return requestJson('/config/base.php', {
+					method: 'GET'
+				});
+			}
+
+			el.form.addEventListener('submit', async (event) => {
+				event.preventDefault();
+				setStatus('', true);
+
+				const originalUrl = el.originalUrl.value.trim();
+				const baseUrl = normalizeRoot(el.baseUrl.value.trim());
+				const apiRootInput = el.apiRoot.value.trim();
+				const redirectPath = normalizeRedirectPath(el.redirectPath.value);
+
+				if (!originalUrl) {
+					setStatus('Debes ingresar una URL válida.', false);
+					return;
+				}
+
+				if (!baseUrl) {
+					setStatus('Debes definir la ruta base del sistema.', false);
+					return;
+				}
+
+				state.apiRoot = normalizeRoot(apiRootInput || '../backend/api');
+				localStorage.setItem('baseUrl', baseUrl);
+
+				try {
+					await saveBaseConfiguration(baseUrl, redirectPath);
+					const created = await createShortUrl(originalUrl);
+					setStatus('URL corta generada: ' + created.shortUrl, true);
+					el.originalUrl.value = '';
+					await loadUrls();
+					await loadStats(created._id);
+				} catch (error) {
+					setStatus(error.message, false);
+				}
+			});
+
+			async function init() {
+				const defaultBase = detectBaseUrl();
+				el.baseUrl.value = defaultBase;
+				el.apiRoot.value = state.apiRoot;
+				el.redirectPath.value = '/backend/redirect/index.php';
+
+				try {
+					const config = await loadBaseConfiguration();
+					if (config.baseUrl) {
+						el.baseUrl.value = config.baseUrl;
+					}
+					if (config.redirectPath) {
+						el.redirectPath.value = config.redirectPath;
+					}
+					await loadUrls();
+				} catch (error) {
+					setStatus('No se pudo cargar la lista inicial: ' + error.message, false);
+				}
+			}
+
+			el.statsView.addEventListener('change', (event) => {
+				const target = event.target;
+				if (!(target instanceof HTMLElement)) {
+					return;
+				}
+
+				if (target.id === 'filter-country') {
+					state.visitsFilters.country = target.value;
+					updateVisitsTable();
+					return;
+				}
+
+				if (target.id === 'filter-from-date') {
+					state.visitsFilters.fromDate = target.value;
+					updateVisitsTable();
+					return;
+				}
+
+				if (target.id === 'filter-to-date') {
+					state.visitsFilters.toDate = target.value;
+					updateVisitsTable();
+				}
+			});
+
+			init();
+		})();
+	</script>
+</body>
+</html>

@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS visits (
     id INT AUTO_INCREMENT PRIMARY KEY,
     url_id INT NOT NULL,
     ip_address VARCHAR(45) NULL,
+    country VARCHAR(120) NULL,
     user_agent TEXT NULL,
     visited_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_visits_url
